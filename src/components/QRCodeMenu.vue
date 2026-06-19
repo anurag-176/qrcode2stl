@@ -166,6 +166,7 @@ const defaultOptions = {
     depth: 1,
     margin: 5,
     blockSizeMultiplier: 100,
+    blockCornerRadius: 0,
     iconName: 'none',
     iconSizeRatio: 20,
     iconShapes: null,

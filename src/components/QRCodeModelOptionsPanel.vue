@@ -669,6 +669,28 @@
               </div>
             </div>
           </div>
+          <div class="field is-horizontal">
+            <div class="field-label is-small">
+              <label class="label" :title="'code.blockCornerRadius — ' + $t('block') + ' ' + $t('cornerRadius')">{{$t('block')}} {{$t('cornerRadius')}}</label>
+            </div>
+            <div class="field-body">
+              <div class="field has-addons">
+                <div class="control">
+                  <input
+                    class="input is-small"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    v-model.number="options.code.blockCornerRadius"
+                    :title="'code.blockCornerRadius — ' + $t('block') + ' ' + $t('cornerRadius')"
+                  />
+                </div>
+                <p class="control">
+                  <a class="button is-static is-small">{{unit}}</a>
+                </p>
+              </div>
+            </div>
+          </div>
 
           <!-- Icon Settings -->
           <div class="field is-horizontal">

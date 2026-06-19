@@ -484,6 +484,7 @@ export default {
         'code.depth',
         'code.margin',
         'code.blockSizeMultiplier',
+        'code.blockCornerRadius',
         'code.iconName',
         'code.iconSizeRatio',
         'code.cityMode',

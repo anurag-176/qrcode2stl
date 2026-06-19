@@ -889,6 +889,40 @@ class QRCode3D extends BaseTag3D {
   /**
    * @return {THREE.Mesh} the mesh of the actual QR-Code segment
    */
+  getQRCodeBlockGeometry(x, y, depth) {
+    const maxRadius = this.blockWidth / 2;
+    const configuredRadius = Number(this.options.code.blockCornerRadius) || 0;
+    const radius = Math.max(0, Math.min(configuredRadius, maxRadius));
+
+    if (radius === 0 || this.isFinderPatternModule(x, y)) {
+      return new THREE.BoxGeometry(this.blockWidth, this.blockWidth, depth);
+    }
+
+    const shape = getRoundedRectShape(
+      -this.blockWidth / 2,
+      -this.blockWidth / 2,
+      this.blockWidth,
+      this.blockWidth,
+      radius,
+    );
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      steps: 1,
+      depth,
+      bevelEnabled: false,
+      curveSegments: 12,
+    });
+    geometry.translate(0, 0, -depth / 2);
+    return geometry;
+  }
+
+  isFinderPatternModule(x, y) {
+    const finderSize = 7;
+    const maxFinderStart = this.maskWidth - finderSize;
+    return (x < finderSize && y < finderSize)
+      || (x >= maxFinderStart && y < finderSize)
+      || (x < finderSize && y >= maxFinderStart);
+  }
+
   getQRCodeMesh() {
     const invert = this.options.code.invert;
     const useOldCompatMode = this.options.code.compatibilityMode;
@@ -908,7 +942,7 @@ class QRCode3D extends BaseTag3D {
             blockDepth = Math.min(this.options.code.depth, this.options.code.depthMax)
               + Math.random() * Math.abs(this.options.code.depthMax - this.options.code.depth);
           }
-          const blockGeo = new THREE.BoxGeometry(this.blockWidth, this.blockWidth, blockDepth);
+          const blockGeo = this.getQRCodeBlockGeometry(x, y, blockDepth);
           const blockMesh = new THREE.Mesh(blockGeo, this.materialDetail);
           const blockX = (x / this.maskWidth) * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
           const blockY = (y / this.maskWidth) * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
@@ -956,11 +990,7 @@ class QRCode3D extends BaseTag3D {
             blockDepth = Math.min(this.options.code.depth, this.options.code.depthMax) + Math.random() * Math.abs(this.options.code.depthMax - this.options.code.depth);
           }
 
-          const qrBlock = new THREE.BoxGeometry(
-            this.blockWidth,
-            this.blockWidth,
-            blockDepth,
-          );
+          const qrBlock = this.getQRCodeBlockGeometry(x, y, blockDepth);
 
           const qrBlockMesh = new THREE.Mesh(qrBlock, this.materialDetail);
 
