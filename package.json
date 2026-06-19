@@ -6,13 +6,19 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:cli": "vite build --config vite.cli.config.js",
+    "cli": "node dist-cli/qrcode2stl.js",
     "preview": "vite preview",
     "lint": "eslint src --ext .js,.vue",
     "serve": "npx serve public"
   },
+  "bin": {
+    "qrcode2stl": "dist-cli/qrcode2stl.js"
+  },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^5.15.4",
     "@tailwindcss/vite": "^4.1.8",
+    "@xmldom/xmldom": "^0.9.10",
     "babel-runtime": "^6.26.0",
     "bulma": "^0.9.4",
     "core-js": "^3.6.5",
