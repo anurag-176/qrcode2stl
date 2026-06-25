@@ -61230,7 +61230,7 @@ QR content:
   --calendar-event-name <value> --calendar-start-date YYYY-MM-DD --calendar-start-time HH:mm
   --calendar-end-date YYYY-MM-DD --calendar-end-time HH:mm --calendar-all-day
   --calendar-location <value> --calendar-description <value>
-  --error-correction <L|M|Q|H>        QR error correction level (default: M, icon forces H)
+  --error-correction <L|M|Q|H>        QR error correction level (default: M, icon defaults to H unless set)
 
 Model options:
   --base-shape <rectangle|roundedRectangle>
@@ -61499,14 +61499,14 @@ const loadIconShapes = async (args, options) => {
   if (has(args, "icon-svg")) {
     options.code.iconName = "custom-cli";
     options.code.iconShapes = await processSvgShapes(await fs.readFile(args["icon-svg"], "utf8"), true);
-    options.errorCorrectionLevel = "H";
+    if (!has(args, "error-correction")) options.errorCorrectionLevel = "H";
     return;
   }
   if (!options.code.iconName || options.code.iconName === "none") return;
   const projectRoot = await findProjectRoot();
   const iconPath = path.join(projectRoot, "public", "icons", `${options.code.iconName}.svg`);
   options.code.iconShapes = await processSvgShapes(await fs.readFile(iconPath, "utf8"), true);
-  options.errorCorrectionLevel = "H";
+  if (!has(args, "error-correction")) options.errorCorrectionLevel = "H";
 };
 const spotifyUriFromInput = (input) => {
   if (input.startsWith("spotify:")) return input;
