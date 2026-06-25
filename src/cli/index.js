@@ -468,6 +468,7 @@ const main = async () => {
     if (!qrText) throw new Error('QR content cannot be empty');
     const qrCodeObject = await qrcode.create(qrText, { errorCorrectionLevel: options.errorCorrectionLevel });
     generator = new QRCode3D(qrCodeObject.modules.data, options);
+    console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm`);
   } else if (mode === 'text') {
     generator = new BaseTag3D(await buildTextOptions(args));
   } else {
