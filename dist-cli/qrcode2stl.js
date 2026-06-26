@@ -60532,7 +60532,8 @@ class QRCode3D extends BaseTag3D {
           const blockX = x / this.maskWidth * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
           const blockY = y / this.maskWidth * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
           if (this.iconMesh) {
-            const margin = Math.min(this.blockWidth * 1.5, 4);
+            const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
+            const margin = Math.min(this.blockWidth * iconBlockMargin, 4);
             if (blockX > -iconSize.x / 2 - margin && blockX < iconSize.x / 2 + margin && blockY > -iconSize.y / 2 - margin && blockY < iconSize.y / 2 + margin) {
               continue;
             }
@@ -60574,7 +60575,8 @@ class QRCode3D extends BaseTag3D {
           blockY -= this.availableWidth / 2;
           blockY += this.blockWidth / 2;
           if (this.iconMesh) {
-            const safetyMargin = Math.min(this.blockWidth * 1.5, 4);
+            const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
+            const safetyMargin = Math.min(this.blockWidth * iconBlockMargin, 4);
             if (blockX > -iconSize.x / 2 - safetyMargin && blockX < iconSize.x / 2 + safetyMargin && (blockY > -iconSize.y / 2 - safetyMargin && blockY < +iconSize.y / 2 + safetyMargin)) {
               continue;
             }
@@ -60997,6 +60999,7 @@ const qrDefaultOptions = {
     blockCornerRadius: 0,
     iconName: "none",
     iconSizeRatio: 20,
+    iconBlockMargin: 1.5,
     iconShapes: null,
     cityMode: false,
     depthMax: 5,
@@ -61509,6 +61512,16 @@ const loadIconShapes = async (args, options) => {
   options.code.iconShapes = await processSvgShapes(await fs.readFile(iconPath, "utf8"), true);
   if (!has(args, "error-correction")) options.errorCorrectionLevel = "H";
 };
+const applyLowCorrectionIconDefaults = (args, options) => {
+  if (!options.code.iconShapes || options.errorCorrectionLevel !== "L") return;
+  options.code.iconBlockMargin = 0;
+  if (!has(args, "icon-size")) {
+    options.code.iconSizeRatio = Math.min(options.code.iconSizeRatio, 8);
+    console.warn("Warning: --error-correction L with an icon is fragile; reducing icon size to 8%. Use --icon-size to override.");
+  } else if (options.code.iconSizeRatio > 8) {
+    console.warn("Warning: --error-correction L with --icon-size above 8 may be unscannable.");
+  }
+};
 const pointInPolygon = (point, polygon) => {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
@@ -61644,7 +61657,7 @@ const writeQRPreviewPng = async (filePath, qrCodeObject, options, generator) => 
   if (options.code.iconShapes && options.code.iconShapes.length > 0) {
     const qrPixelSize = moduleCount * scale;
     const iconSize = qrPixelSize * (options.code.iconSizeRatio / 100);
-    const clearPadding = Math.min(scale * 1.5, imageSize * 0.04);
+    const clearPadding = Math.min(scale * (options.code.iconBlockMargin ?? 1.5), imageSize * 0.04);
     const clearSize = iconSize + clearPadding * 2;
     const clearX = (imageSize - clearSize) / 2;
     const clearY = (imageSize - clearSize) / 2;
@@ -61725,14 +61738,15 @@ const main = async () => {
   if (mode === "qr") {
     const options = await buildQROptions(args);
     await loadIconShapes(args, options);
+    applyLowCorrectionIconDefaults(args, options);
     const qrText = getQRText(options);
     if (!qrText) throw new Error("QR content cannot be empty");
     const qrCodeObject = await qrcode.create(qrText, { errorCorrectionLevel: options.errorCorrectionLevel });
     generator = new QRCode3D(qrCodeObject.modules.data, options);
     previewPngPath = path.join(outputDir, `${filename}.png`);
     await writeQRPreviewPng(previewPngPath, qrCodeObject, options, generator);
-    console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm`);
-    if (options.code.iconShapes && options.errorCorrectionLevel !== "H") {
+    console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm, iconSize=${options.code.iconSizeRatio}%, iconBlockMargin=${options.code.iconBlockMargin}`);
+    if (options.code.iconShapes && options.errorCorrectionLevel !== "H" && options.code.iconSizeRatio > 8) {
       console.warn("Warning: icons usually need --error-correction H for reliable scanning.");
     }
   } else if (mode === "text") {
