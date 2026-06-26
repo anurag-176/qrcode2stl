@@ -923,25 +923,72 @@ class QRCode3D extends BaseTag3D {
       || (x < finderSize && y >= maxFinderStart);
   }
 
-  getIconClearanceMesh(iconSize) {
+  getIconClearanceBounds(iconSize) {
     const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
     const margin = this.blockWidth * iconBlockMargin;
-    const clearanceDepth = Math.max(this.options.code.depth, this.options.code.depthMax || this.options.code.depth) + 2;
-    const clearanceGeometry = new THREE.BoxGeometry(
-      iconSize.x + margin * 2,
-      iconSize.y + margin * 2,
-      clearanceDepth,
-    );
-    const clearanceMesh = new THREE.Mesh(clearanceGeometry, this.materialDetail);
-    clearanceMesh.position.set(0, 0, this.options.base.depth + clearanceDepth / 2 - 1);
-    clearanceMesh.updateMatrix();
-    return clearanceMesh;
+    return {
+      left: -iconSize.x / 2 - margin,
+      right: iconSize.x / 2 + margin,
+      bottom: -iconSize.y / 2 - margin,
+      top: iconSize.y / 2 + margin,
+    };
+  }
+
+  getQRCodeBlockClippedGeometries(x, y, blockX, blockY, depth, clearanceBounds) {
+    const blockHalf = this.blockWidth / 2;
+    const blockLeft = blockX - blockHalf;
+    const blockRight = blockX + blockHalf;
+    const blockBottom = blockY - blockHalf;
+    const blockTop = blockY + blockHalf;
+    const overlapsClearance = blockRight > clearanceBounds.left
+      && blockLeft < clearanceBounds.right
+      && blockTop > clearanceBounds.bottom
+      && blockBottom < clearanceBounds.top;
+
+    if (!overlapsClearance) {
+      return [this.getQRCodeBlockGeometry(x, y, depth)];
+    }
+
+    const configuredRadius = Number(this.options.code.blockCornerRadius) || 0;
+    if (configuredRadius > 0 || this.isFinderPatternModule(x, y)) {
+      return [];
+    }
+
+    const rectangles = [];
+    const addRectangle = (left, right, bottom, top) => {
+      const width = right - left;
+      const height = top - bottom;
+      if (width <= 0.001 || height <= 0.001) return;
+      rectangles.push({
+        width,
+        height,
+        centerX: (left + right) / 2 - blockX,
+        centerY: (bottom + top) / 2 - blockY,
+      });
+    };
+
+    addRectangle(blockLeft, Math.min(blockRight, clearanceBounds.left), blockBottom, blockTop);
+    addRectangle(Math.max(blockLeft, clearanceBounds.right), blockRight, blockBottom, blockTop);
+
+    const middleLeft = Math.max(blockLeft, clearanceBounds.left);
+    const middleRight = Math.min(blockRight, clearanceBounds.right);
+    addRectangle(middleLeft, middleRight, blockBottom, Math.min(blockTop, clearanceBounds.bottom));
+    addRectangle(middleLeft, middleRight, Math.max(blockBottom, clearanceBounds.top), blockTop);
+
+    return rectangles.map(({ width, height, centerX, centerY }) => {
+      const geometry = new THREE.BoxGeometry(width, height, depth);
+      geometry.translate(centerX, centerY, 0);
+      return geometry;
+    });
   }
 
   getQRCodeMesh() {
     const invert = this.options.code.invert;
     const useOldCompatMode = this.options.code.compatibilityMode;
     const iconSize = this.iconMesh ? getBoundingBoxSize(this.iconMesh) : null;
+    const iconClearanceBounds = this.iconMesh && this.options.code.preciseIconMargin
+      ? this.getIconClearanceBounds(iconSize)
+      : null;
     // fast path for non-inverted QR codes or when using compatibility mode (avoid CSG)
     if (!invert || useOldCompatMode) {
       // Warn user if inversion is requested but compatibility mode is enabled
@@ -957,8 +1004,6 @@ class QRCode3D extends BaseTag3D {
             blockDepth = Math.min(this.options.code.depth, this.options.code.depthMax)
               + Math.random() * Math.abs(this.options.code.depthMax - this.options.code.depth);
           }
-          const blockGeo = this.getQRCodeBlockGeometry(x, y, blockDepth);
-          const blockMesh = new THREE.Mesh(blockGeo, this.materialDetail);
           const blockX = (x / this.maskWidth) * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
           const blockY = (y / this.maskWidth) * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
           if (this.iconMesh && !this.options.code.preciseIconMargin) {
@@ -969,11 +1014,17 @@ class QRCode3D extends BaseTag3D {
               continue;
             }
           }
-          blockMesh.position.set(blockX, blockY, this.options.base.depth + blockDepth / 2);
-          blockMesh.updateMatrix();
-          const clonedBlockGeometry = blockGeo.clone();
-          clonedBlockGeometry.applyMatrix4(blockMesh.matrix);
-          geometries.push(clonedBlockGeometry);
+          const blockGeometries = iconClearanceBounds
+            ? this.getQRCodeBlockClippedGeometries(x, y, blockX, blockY, blockDepth, iconClearanceBounds)
+            : [this.getQRCodeBlockGeometry(x, y, blockDepth)];
+          blockGeometries.forEach((blockGeo) => {
+            const blockMesh = new THREE.Mesh(blockGeo, this.materialDetail);
+            blockMesh.position.set(blockX, blockY, this.options.base.depth + blockDepth / 2);
+            blockMesh.updateMatrix();
+            const clonedBlockGeometry = blockGeo.clone();
+            clonedBlockGeometry.applyMatrix4(blockMesh.matrix);
+            geometries.push(clonedBlockGeometry);
+          });
         }
       }
       if (geometries.length === 0) {
@@ -989,11 +1040,7 @@ class QRCode3D extends BaseTag3D {
       });
 
       const qrcodeGeometry = BufferGeometryUtils.mergeGeometries(compatibleGeometries);
-      let qrcodeMesh = new THREE.Mesh(qrcodeGeometry, this.materialDetail);
-      if (this.iconMesh && this.options.code.preciseIconMargin) {
-        qrcodeMesh = subtractMesh(qrcodeMesh, this.getIconClearanceMesh(iconSize));
-      }
-      return qrcodeMesh;
+      return new THREE.Mesh(qrcodeGeometry, this.materialDetail);
     }
 
   // slow path for inverted QR codes
