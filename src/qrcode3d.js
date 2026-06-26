@@ -926,11 +926,12 @@ class QRCode3D extends BaseTag3D {
   getIconClearanceBounds(iconSize) {
     const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
     const margin = this.blockWidth * iconBlockMargin;
+    const iconFootprint = Math.max(iconSize.x, iconSize.y);
     return {
-      left: -iconSize.x / 2 - margin,
-      right: iconSize.x / 2 + margin,
-      bottom: -iconSize.y / 2 - margin,
-      top: iconSize.y / 2 + margin,
+      left: -iconFootprint / 2 - margin,
+      right: iconFootprint / 2 + margin,
+      bottom: -iconFootprint / 2 - margin,
+      top: iconFootprint / 2 + margin,
     };
   }
 
@@ -947,11 +948,6 @@ class QRCode3D extends BaseTag3D {
 
     if (!overlapsClearance) {
       return [this.getQRCodeBlockGeometry(x, y, depth)];
-    }
-
-    const configuredRadius = Number(this.options.code.blockCornerRadius) || 0;
-    if (configuredRadius > 0 || this.isFinderPatternModule(x, y)) {
-      return [];
     }
 
     const rectangles = [];
