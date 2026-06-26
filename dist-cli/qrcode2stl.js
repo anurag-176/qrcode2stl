@@ -61576,12 +61576,22 @@ const main = async () => {
   const filename = str(args, "filename") || `${mode}-${Date.now()}`;
   await fs.mkdir(outputDir, { recursive: true });
   let generator;
+  let previewPngPath = null;
   if (mode === "qr") {
     const options = await buildQROptions(args);
     await loadIconShapes(args, options);
     const qrText = getQRText(options);
     if (!qrText) throw new Error("QR content cannot be empty");
     const qrCodeObject = await qrcode.create(qrText, { errorCorrectionLevel: options.errorCorrectionLevel });
+    previewPngPath = path.join(outputDir, `${filename}.png`);
+    await qrcode.toFile(previewPngPath, qrText, {
+      errorCorrectionLevel: options.errorCorrectionLevel,
+      margin: 4,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF"
+      }
+    });
     generator = new QRCode3D(qrCodeObject.modules.data, options);
     console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm`);
     if (options.code.iconShapes && options.errorCorrectionLevel !== "H") {
@@ -61603,6 +61613,10 @@ const main = async () => {
   });
   console.log(`Wrote ${written.length} STL file${written.length === 1 ? "" : "s"}:`);
   written.forEach((filePath) => console.log(filePath));
+  if (previewPngPath) {
+    console.log("Wrote QR preview PNG:");
+    console.log(previewPngPath);
+  }
 };
 main().catch((error) => {
   console.error(`Error: ${error.message}`);
