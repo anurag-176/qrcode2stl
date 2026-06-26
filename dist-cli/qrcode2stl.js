@@ -60521,7 +60521,7 @@ class QRCode3D extends BaseTag3D {
       const geometries = [];
       for (let y = 0; y < this.maskWidth; y += 1) {
         for (let x = 0; x < this.maskWidth; x += 1) {
-          if (!this.bitMask[x * this.maskWidth + y]) continue;
+          if (!this.bitMask[y * this.maskWidth + x]) continue;
           let blockDepth = this.options.code.depth;
           if (this.options.code.cityMode) {
             blockDepth = Math.min(this.options.code.depth, this.options.code.depthMax) + Math.random() * Math.abs(this.options.code.depthMax - this.options.code.depth);
@@ -60558,7 +60558,7 @@ class QRCode3D extends BaseTag3D {
     let bspQRMesh = null;
     for (let y = 0; y < this.maskWidth; y += 1) {
       for (let x = 0; x < this.maskWidth; x += 1) {
-        const isBlack = !!this.bitMask[x * this.maskWidth + y];
+        const isBlack = !!this.bitMask[y * this.maskWidth + x];
         if (isBlack) {
           let blockDepth = this.options.code.depth;
           if (this.options.code.cityMode) {
@@ -61584,6 +61584,9 @@ const main = async () => {
     const qrCodeObject = await qrcode.create(qrText, { errorCorrectionLevel: options.errorCorrectionLevel });
     generator = new QRCode3D(qrCodeObject.modules.data, options);
     console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm`);
+    if (options.code.iconShapes && options.errorCorrectionLevel !== "H") {
+      console.warn("Warning: icons usually need --error-correction H for reliable scanning.");
+    }
   } else if (mode === "text") {
     generator = new BaseTag3D(await buildTextOptions(args));
   } else {

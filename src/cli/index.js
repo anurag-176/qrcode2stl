@@ -469,6 +469,9 @@ const main = async () => {
     const qrCodeObject = await qrcode.create(qrText, { errorCorrectionLevel: options.errorCorrectionLevel });
     generator = new QRCode3D(qrCodeObject.modules.data, options);
     console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm`);
+    if (options.code.iconShapes && options.errorCorrectionLevel !== 'H') {
+      console.warn('Warning: icons usually need --error-correction H for reliable scanning.');
+    }
   } else if (mode === 'text') {
     generator = new BaseTag3D(await buildTextOptions(args));
   } else {
