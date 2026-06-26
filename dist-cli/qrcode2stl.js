@@ -3,11 +3,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DOMParser } from "@xmldom/xmldom";
+import { PNG } from "pngjs";
 import qrcode from "qrcode";
+import * as THREE from "three";
 import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
 import * as pathThatSvgModule from "path-that-svg";
-import * as THREE from "three";
 import * as BufferGeometryUtils from "three/addons/utils/BufferGeometryUtils.js";
 import { CSG } from "three-csg-ts";
 import { Font } from "three/addons/loaders/FontLoader.js";
@@ -61508,6 +61509,150 @@ const loadIconShapes = async (args, options) => {
   options.code.iconShapes = await processSvgShapes(await fs.readFile(iconPath, "utf8"), true);
   if (!has(args, "error-correction")) options.errorCorrectionLevel = "H";
 };
+const pointInPolygon = (point, polygon) => {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+    const intersects = yi > point.y !== yj > point.y && point.x < (xj - xi) * (point.y - yi) / (yj - yi || Number.EPSILON) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+};
+const setPixel = (png, x, y, color) => {
+  if (x < 0 || y < 0 || x >= png.width || y >= png.height) return;
+  const index = png.width * y + x << 2;
+  png.data[index] = color[0];
+  png.data[index + 1] = color[1];
+  png.data[index + 2] = color[2];
+  png.data[index + 3] = 255;
+};
+const fillRect = (png, x, y, width, height, color) => {
+  const startX = Math.max(0, Math.floor(x));
+  const startY = Math.max(0, Math.floor(y));
+  const endX = Math.min(png.width, Math.ceil(x + width));
+  const endY = Math.min(png.height, Math.ceil(y + height));
+  for (let py = startY; py < endY; py += 1) {
+    for (let px = startX; px < endX; px += 1) {
+      setPixel(png, px, py, color);
+    }
+  }
+};
+const fillRoundedRect = (png, x, y, width, height, radius, color) => {
+  if (radius <= 0) {
+    fillRect(png, x, y, width, height, color);
+    return;
+  }
+  const startX = Math.max(0, Math.floor(x));
+  const startY = Math.max(0, Math.floor(y));
+  const endX = Math.min(png.width, Math.ceil(x + width));
+  const endY = Math.min(png.height, Math.ceil(y + height));
+  const r = Math.min(radius, width / 2, height / 2);
+  for (let py = startY; py < endY; py += 1) {
+    for (let px = startX; px < endX; px += 1) {
+      const cx = px + 0.5;
+      const cy = py + 0.5;
+      const nearestX = Math.max(x + r, Math.min(cx, x + width - r));
+      const nearestY = Math.max(y + r, Math.min(cy, y + height - r));
+      if ((cx - nearestX) ** 2 + (cy - nearestY) ** 2 <= r ** 2) {
+        setPixel(png, px, py, color);
+      }
+    }
+  }
+};
+const isFinderPatternModule = (x, y, moduleCount) => {
+  const finderSize = 7;
+  const maxFinderStart = moduleCount - finderSize;
+  return x < finderSize && y < finderSize || x >= maxFinderStart && y < finderSize || x < finderSize && y >= maxFinderStart;
+};
+const getIconPolygons = (iconShapes) => {
+  const polygons = [];
+  const bounds = {
+    minX: Infinity,
+    minY: Infinity,
+    maxX: -Infinity,
+    maxY: -Infinity
+  };
+  iconShapes.forEach((shapeData) => {
+    const shape = new THREE.Shape().fromJSON(shapeData.shape || shapeData);
+    const outer = shape.getPoints(64);
+    const holes = (shapeData.holes || []).map((holeData) => new THREE.Path().fromJSON(holeData).getPoints(64));
+    polygons.push({ outer, holes });
+    [outer, ...holes].flat().forEach((point) => {
+      bounds.minX = Math.min(bounds.minX, point.x);
+      bounds.minY = Math.min(bounds.minY, point.y);
+      bounds.maxX = Math.max(bounds.maxX, point.x);
+      bounds.maxY = Math.max(bounds.maxY, point.y);
+    });
+  });
+  return { polygons, bounds };
+};
+const drawIcon = (png, iconShapes, x, y, size) => {
+  if (!iconShapes || iconShapes.length === 0 || size <= 0) return;
+  const { polygons, bounds } = getIconPolygons(iconShapes);
+  const width = bounds.maxX - bounds.minX;
+  const height = bounds.maxY - bounds.minY;
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+  const scale = Math.min(size / width, size / height);
+  const drawnWidth = width * scale;
+  const drawnHeight = height * scale;
+  const offsetX = x + (size - drawnWidth) / 2;
+  const offsetY = y + (size - drawnHeight) / 2;
+  const black = [0, 0, 0];
+  for (let py = Math.floor(y); py < Math.ceil(y + size); py += 1) {
+    for (let px = Math.floor(x); px < Math.ceil(x + size); px += 1) {
+      const shapePoint = {
+        x: (px + 0.5 - offsetX) / scale + bounds.minX,
+        y: bounds.maxY - (py + 0.5 - offsetY) / scale
+      };
+      const isFilled = polygons.some(({ outer, holes }) => pointInPolygon(shapePoint, outer) && !holes.some((hole) => pointInPolygon(shapePoint, hole)));
+      if (isFilled) setPixel(png, px, py, black);
+    }
+  }
+};
+const writeQRPreviewPng = async (filePath, qrCodeObject, options, generator) => {
+  const moduleCount = qrCodeObject.modules.size;
+  const scale = Math.max(4, Math.ceil(164 / (moduleCount + 8)));
+  const margin = 4;
+  const imageSize = (moduleCount + margin * 2) * scale;
+  const png = new PNG({ width: imageSize, height: imageSize });
+  const white = [255, 255, 255];
+  const black = [0, 0, 0];
+  fillRect(png, 0, 0, imageSize, imageSize, white);
+  for (let y = 0; y < moduleCount; y += 1) {
+    for (let x = 0; x < moduleCount; x += 1) {
+      if (!qrCodeObject.modules.data[y * moduleCount + x]) continue;
+      const fillSize = scale * (options.code.blockSizeMultiplier / 100);
+      const offset = (scale - fillSize) / 2;
+      const radius = isFinderPatternModule(x, y, moduleCount) ? 0 : Math.min(
+        fillSize / 2,
+        (Number(options.code.blockCornerRadius) || 0) / generator.blockWidth * fillSize
+      );
+      fillRoundedRect(
+        png,
+        (x + margin) * scale + offset,
+        (y + margin) * scale + offset,
+        fillSize,
+        fillSize,
+        radius,
+        black
+      );
+    }
+  }
+  if (options.code.iconShapes && options.code.iconShapes.length > 0) {
+    const qrPixelSize = moduleCount * scale;
+    const iconSize = qrPixelSize * (options.code.iconSizeRatio / 100);
+    const clearPadding = Math.min(scale * 1.5, imageSize * 0.04);
+    const clearSize = iconSize + clearPadding * 2;
+    const clearX = (imageSize - clearSize) / 2;
+    const clearY = (imageSize - clearSize) / 2;
+    fillRect(png, clearX, clearY, clearSize, clearSize, white);
+    drawIcon(png, options.code.iconShapes, clearX + clearPadding, clearY + clearPadding, iconSize);
+  }
+  await fs.writeFile(filePath, PNG.sync.write(png));
+};
 const spotifyUriFromInput = (input) => {
   if (input.startsWith("spotify:")) return input;
   const regex = /spotify\.com\/(?:.*\/)*([^/]+)\/([^?/]+)/gm;
@@ -61583,16 +61728,9 @@ const main = async () => {
     const qrText = getQRText(options);
     if (!qrText) throw new Error("QR content cannot be empty");
     const qrCodeObject = await qrcode.create(qrText, { errorCorrectionLevel: options.errorCorrectionLevel });
-    previewPngPath = path.join(outputDir, `${filename}.png`);
-    await qrcode.toFile(previewPngPath, qrText, {
-      errorCorrectionLevel: options.errorCorrectionLevel,
-      margin: 4,
-      color: {
-        dark: "#000000",
-        light: "#FFFFFF"
-      }
-    });
     generator = new QRCode3D(qrCodeObject.modules.data, options);
+    previewPngPath = path.join(outputDir, `${filename}.png`);
+    await writeQRPreviewPng(previewPngPath, qrCodeObject, options, generator);
     console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm`);
     if (options.code.iconShapes && options.errorCorrectionLevel !== "H") {
       console.warn("Warning: icons usually need --error-correction H for reliable scanning.");

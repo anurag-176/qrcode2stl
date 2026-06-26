@@ -27,6 +27,7 @@
     "jszip": "^3.5.0",
     "markdown-it": "^14.0.0",
     "path-that-svg": "^1.2.4",
+    "pngjs": "^7.0.0",
     "qrcode": "^1.4.4",
     "tailwindcss": "^4.1.8",
     "three": "^0.178.0",
