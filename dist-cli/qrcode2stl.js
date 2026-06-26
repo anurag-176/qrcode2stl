@@ -60533,7 +60533,7 @@ class QRCode3D extends BaseTag3D {
           const blockY = y / this.maskWidth * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
           if (this.iconMesh) {
             const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
-            const margin = Math.min(this.blockWidth * iconBlockMargin, 4);
+            const margin = Math.min(this.blockWidth * (iconBlockMargin + 0.5), 4);
             if (blockX > -iconSize.x / 2 - margin && blockX < iconSize.x / 2 + margin && blockY > -iconSize.y / 2 - margin && blockY < iconSize.y / 2 + margin) {
               continue;
             }
@@ -60576,7 +60576,7 @@ class QRCode3D extends BaseTag3D {
           blockY += this.blockWidth / 2;
           if (this.iconMesh) {
             const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
-            const safetyMargin = Math.min(this.blockWidth * iconBlockMargin, 4);
+            const safetyMargin = Math.min(this.blockWidth * (iconBlockMargin + 0.5), 4);
             if (blockX > -iconSize.x / 2 - safetyMargin && blockX < iconSize.x / 2 + safetyMargin && (blockY > -iconSize.y / 2 - safetyMargin && blockY < +iconSize.y / 2 + safetyMargin)) {
               continue;
             }
@@ -61523,6 +61523,13 @@ const applyLowCorrectionIconDefaults = (args, options) => {
     console.warn("Warning: --error-correction L with --icon-size above 8 may be unscannable.");
   }
 };
+const normalizeIconMargin = (args, options) => {
+  if (!options.code.iconShapes || !has(args, "icon-margin")) return;
+  if (options.code.iconBlockMargin > 0 && options.code.iconBlockMargin < 1) {
+    options.code.iconBlockMargin = 1;
+    console.warn("Warning: STL icon margins snap to whole QR modules; using icon margin 1 instead of a sub-module value.");
+  }
+};
 const pointInPolygon = (point, polygon) => {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
@@ -61740,6 +61747,7 @@ const main = async () => {
     const options = await buildQROptions(args);
     await loadIconShapes(args, options);
     applyLowCorrectionIconDefaults(args, options);
+    normalizeIconMargin(args, options);
     const qrText = getQRText(options);
     if (!qrText) throw new Error("QR content cannot be empty");
     const qrCodeObject = await qrcode.create(qrText, { errorCorrectionLevel: options.errorCorrectionLevel });

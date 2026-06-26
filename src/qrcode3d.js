@@ -948,7 +948,7 @@ class QRCode3D extends BaseTag3D {
           const blockY = (y / this.maskWidth) * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
           if (this.iconMesh) {
             const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
-            const margin = Math.min(this.blockWidth * iconBlockMargin, 4);
+            const margin = Math.min(this.blockWidth * (iconBlockMargin + 0.5), 4);
             if (blockX > -iconSize.x / 2 - margin && blockX < iconSize.x / 2 + margin
               && blockY > -iconSize.y / 2 - margin && blockY < iconSize.y / 2 + margin) {
               continue;
@@ -1007,7 +1007,7 @@ class QRCode3D extends BaseTag3D {
           if (this.iconMesh) {
             // don't draw block if it collides with icon bounding box
             const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
-            const safetyMargin = Math.min(this.blockWidth * iconBlockMargin, 4);
+            const safetyMargin = Math.min(this.blockWidth * (iconBlockMargin + 0.5), 4);
             if ((blockX > -iconSize.x / 2 - safetyMargin
               && blockX < iconSize.x / 2 + safetyMargin)
               && (blockY > -iconSize.y / 2 - safetyMargin
