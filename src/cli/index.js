@@ -99,7 +99,7 @@ Model options:
   --block-size <percent> --block-corner-radius <mm>
   --icon <name|none>                  Built-in icon from public/icons without .svg
   --icon-svg <file>                   Custom SVG icon file
-  --icon-size <percent> --compatibility-mode
+  --icon-size <percent> --icon-margin <modules> --compatibility-mode
 
 Spotify:
   --spotify-uri <spotify-uri-or-url>
@@ -249,6 +249,7 @@ const applyCodeOptions = (args, options) => {
   applyNumber(args, options, 'block-corner-radius', ['code', 'blockCornerRadius']);
   applyString(args, options, 'icon', ['code', 'iconName']);
   applyNumber(args, options, 'icon-size', ['code', 'iconSizeRatio'], 1);
+  applyNumber(args, options, 'icon-margin', ['code', 'iconBlockMargin']);
   applyBool(args, options, 'compatibility-mode', ['code', 'compatibilityMode'], true);
 };
 
@@ -386,7 +387,7 @@ const loadIconShapes = async (args, options) => {
 
 const applyLowCorrectionIconDefaults = (args, options) => {
   if (!options.code.iconShapes || options.errorCorrectionLevel !== 'L') return;
-  options.code.iconBlockMargin = 0;
+  if (!has(args, 'icon-margin')) options.code.iconBlockMargin = 0;
   if (!has(args, 'icon-size')) {
     options.code.iconSizeRatio = Math.min(options.code.iconSizeRatio, 8);
     console.warn('Warning: --error-correction L with an icon is fragile; reducing icon size to 8%. Use --icon-size to override.');
@@ -653,9 +654,6 @@ const main = async () => {
     previewPngPath = path.join(outputDir, `${filename}.png`);
     await writeQRPreviewPng(previewPngPath, qrCodeObject, options, generator);
     console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm, iconSize=${options.code.iconSizeRatio}%, iconBlockMargin=${options.code.iconBlockMargin}`);
-    if (options.code.iconShapes && options.errorCorrectionLevel !== 'H' && options.code.iconSizeRatio > 8) {
-      console.warn('Warning: icons usually need --error-correction H for reliable scanning.');
-    }
   } else if (mode === 'text') {
     generator = new BaseTag3D(await buildTextOptions(args));
   } else {
