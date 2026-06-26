@@ -61263,7 +61263,7 @@ Required:
 
 General:
   --mode <qr|text|spotify>            Generation mode (default: qr)
-  --filename <name>                   Base output filename (default: generated timestamp)
+  --filename <name>                   Base output filename (default: generated from timestamp/options)
   --format <binary|ascii>             STL format (default: binary)
   --separate-parts                    Write base/code/border/icon/text parts as separate STL files
   --options-json <file>               Merge additional options JSON into the selected mode defaults
@@ -61333,6 +61333,49 @@ const parseArgs = (argv) => {
     }
   }
   return args;
+};
+const AUTO_FILENAME_EXCLUDED_KEYS = /* @__PURE__ */ new Set([
+  "filename",
+  "output-dir",
+  "options-json",
+  "icon-svg",
+  "spotify-svg",
+  "text",
+  "wifi-ssid",
+  "wifi-password",
+  "email-recipient",
+  "email-subject",
+  "email-body",
+  "contact-first-name",
+  "contact-last-name",
+  "contact-organization",
+  "contact-role",
+  "contact-cell",
+  "contact-phone",
+  "contact-fax",
+  "contact-email",
+  "contact-street",
+  "contact-postcode",
+  "contact-city",
+  "contact-state",
+  "contact-country",
+  "contact-website",
+  "sms-recipient",
+  "sms-message",
+  "calendar-event-name",
+  "calendar-location",
+  "calendar-description",
+  "base-text-message",
+  "spotify-uri"
+]);
+const looksLikePath = (value) => /[/\\]/.test(String(value));
+const sanitizeFilenameToken = (value) => {
+  const token = String(value).trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").replace(/^[-._]+|[-._]+$/g, "");
+  return token.slice(0, 48);
+};
+const generateDefaultFilename = (args, timestamp = Date.now()) => {
+  const tokens = Object.entries(args).filter(([key, value]) => !AUTO_FILENAME_EXCLUDED_KEYS.has(key) && value !== void 0 && value !== null && value !== "" && !looksLikePath(value)).map(([, value]) => sanitizeFilenameToken(value)).filter(Boolean);
+  return ["cqr", timestamp, ...tokens].join("-").slice(0, 220);
 };
 const setDeep = (target, pathParts, value) => {
   let cursor = target;
@@ -61809,7 +61852,7 @@ const main = async () => {
   if (!outputDir) throw new Error("--output-dir is required");
   const format = str(args, "format") || "binary";
   validateEnum(format, ["binary", "ascii"], "--format");
-  const filename = str(args, "filename") || `${mode}-${Date.now()}`;
+  const filename = str(args, "filename") || generateDefaultFilename(args);
   await fs.mkdir(outputDir, { recursive: true });
   let generator;
   let previewPngPath = null;
