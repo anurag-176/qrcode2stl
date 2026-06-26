@@ -60514,12 +60514,11 @@ class QRCode3D extends BaseTag3D {
   getIconClearanceBounds(iconSize) {
     const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
     const margin = this.blockWidth * iconBlockMargin;
-    const iconFootprint = Math.max(iconSize.x, iconSize.y);
     return {
-      left: -iconFootprint / 2 - margin,
-      right: iconFootprint / 2 + margin,
-      bottom: -iconFootprint / 2 - margin,
-      top: iconFootprint / 2 + margin
+      left: -iconSize.x / 2 - margin,
+      right: iconSize.x / 2 + margin,
+      bottom: -iconSize.y / 2 - margin,
+      top: iconSize.y / 2 + margin
     };
   }
   getQRCodeBlockClippedGeometries(x, y, blockX, blockY, depth, clearanceBounds) {
@@ -61652,7 +61651,7 @@ const getIconPolygons = (iconShapes) => {
   });
   return { polygons, bounds };
 };
-const drawIcon = (png, iconShapes, x, y, size) => {
+const getIconDrawMetrics = (iconShapes, x, y, size) => {
   if (!iconShapes || iconShapes.length === 0 || size <= 0) return;
   const { polygons, bounds } = getIconPolygons(iconShapes);
   const width = bounds.maxX - bounds.minX;
@@ -61663,6 +61662,26 @@ const drawIcon = (png, iconShapes, x, y, size) => {
   const drawnHeight = height * scale;
   const offsetX = x + (size - drawnWidth) / 2;
   const offsetY = y + (size - drawnHeight) / 2;
+  return {
+    polygons,
+    bounds,
+    scale,
+    drawnWidth,
+    drawnHeight,
+    offsetX,
+    offsetY
+  };
+};
+const drawIcon = (png, iconShapes, x, y, size) => {
+  const metrics = getIconDrawMetrics(iconShapes, x, y, size);
+  if (!metrics) return;
+  const {
+    polygons,
+    bounds,
+    scale,
+    offsetX,
+    offsetY
+  } = metrics;
   const black = [0, 0, 0];
   for (let py = Math.floor(y); py < Math.ceil(y + size); py += 1) {
     for (let px = Math.floor(x); px < Math.ceil(x + size); px += 1) {
@@ -61708,11 +61727,20 @@ const writeQRPreviewPng = async (filePath, qrCodeObject, options, generator) => 
     const qrPixelSize = moduleCount * scale;
     const iconSize = qrPixelSize * (options.code.iconSizeRatio / 100);
     const clearPadding = Math.min(scale * (options.code.iconBlockMargin ?? 1.5), imageSize * 0.04);
-    const clearSize = iconSize + clearPadding * 2;
-    const clearX = (imageSize - clearSize) / 2;
-    const clearY = (imageSize - clearSize) / 2;
-    fillRect(png, clearX, clearY, clearSize, clearSize, white);
-    drawIcon(png, options.code.iconShapes, clearX + clearPadding, clearY + clearPadding, iconSize);
+    const iconBoxX = (imageSize - iconSize) / 2;
+    const iconBoxY = (imageSize - iconSize) / 2;
+    const metrics = getIconDrawMetrics(options.code.iconShapes, iconBoxX, iconBoxY, iconSize);
+    if (metrics) {
+      fillRect(
+        png,
+        metrics.offsetX - clearPadding,
+        metrics.offsetY - clearPadding,
+        metrics.drawnWidth + clearPadding * 2,
+        metrics.drawnHeight + clearPadding * 2,
+        white
+      );
+      drawIcon(png, options.code.iconShapes, iconBoxX, iconBoxY, iconSize);
+    }
   }
   await fs.writeFile(filePath, PNG.sync.write(png));
 };

@@ -926,12 +926,11 @@ class QRCode3D extends BaseTag3D {
   getIconClearanceBounds(iconSize) {
     const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
     const margin = this.blockWidth * iconBlockMargin;
-    const iconFootprint = Math.max(iconSize.x, iconSize.y);
     return {
-      left: -iconFootprint / 2 - margin,
-      right: iconFootprint / 2 + margin,
-      bottom: -iconFootprint / 2 - margin,
-      top: iconFootprint / 2 + margin,
+      left: -iconSize.x / 2 - margin,
+      right: iconSize.x / 2 + margin,
+      bottom: -iconSize.y / 2 - margin,
+      top: iconSize.y / 2 + margin,
     };
   }
 
