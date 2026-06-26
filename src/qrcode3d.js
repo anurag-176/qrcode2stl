@@ -923,6 +923,21 @@ class QRCode3D extends BaseTag3D {
       || (x < finderSize && y >= maxFinderStart);
   }
 
+  getIconClearanceMesh(iconSize) {
+    const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
+    const margin = this.blockWidth * iconBlockMargin;
+    const clearanceDepth = Math.max(this.options.code.depth, this.options.code.depthMax || this.options.code.depth) + 2;
+    const clearanceGeometry = new THREE.BoxGeometry(
+      iconSize.x + margin * 2,
+      iconSize.y + margin * 2,
+      clearanceDepth,
+    );
+    const clearanceMesh = new THREE.Mesh(clearanceGeometry, this.materialDetail);
+    clearanceMesh.position.set(0, 0, this.options.base.depth + clearanceDepth / 2 - 1);
+    clearanceMesh.updateMatrix();
+    return clearanceMesh;
+  }
+
   getQRCodeMesh() {
     const invert = this.options.code.invert;
     const useOldCompatMode = this.options.code.compatibilityMode;
@@ -946,7 +961,7 @@ class QRCode3D extends BaseTag3D {
           const blockMesh = new THREE.Mesh(blockGeo, this.materialDetail);
           const blockX = (x / this.maskWidth) * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
           const blockY = (y / this.maskWidth) * this.availableWidth - this.availableWidth / 2 + this.blockWidth / 2;
-          if (this.iconMesh) {
+          if (this.iconMesh && !this.options.code.preciseIconMargin) {
             const iconBlockMargin = Number.isFinite(this.options.code.iconBlockMargin) ? this.options.code.iconBlockMargin : 1.5;
             const margin = Math.min(this.blockWidth * (iconBlockMargin + 0.5), 4);
             if (blockX > -iconSize.x / 2 - margin && blockX < iconSize.x / 2 + margin
@@ -974,7 +989,11 @@ class QRCode3D extends BaseTag3D {
       });
 
       const qrcodeGeometry = BufferGeometryUtils.mergeGeometries(compatibleGeometries);
-      return new THREE.Mesh(qrcodeGeometry, this.materialDetail);
+      let qrcodeMesh = new THREE.Mesh(qrcodeGeometry, this.materialDetail);
+      if (this.iconMesh && this.options.code.preciseIconMargin) {
+        qrcodeMesh = subtractMesh(qrcodeMesh, this.getIconClearanceMesh(iconSize));
+      }
+      return qrcodeMesh;
     }
 
   // slow path for inverted QR codes

@@ -84,6 +84,7 @@ export const qrDefaultOptions = {
     iconName: 'none',
     iconSizeRatio: 20,
     iconBlockMargin: 1.5,
+    preciseIconMargin: true,
     iconShapes: null,
     cityMode: false,
     depthMax: 5,
