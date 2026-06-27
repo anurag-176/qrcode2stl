@@ -59995,10 +59995,12 @@ class QRCode3D extends BaseTag3D {
     if (!mesh || !mesh.geometry) {
       return false;
     }
-    const validation = this.validateGeometry(mesh.geometry);
-    if (!validation.isValid) {
-      console.warn("Icon mesh validation failed:", validation.issues);
-      return false;
+    if (this.shouldValidateIconGeometry()) {
+      const validation = this.validateGeometry(mesh.geometry);
+      if (!validation.isValid) {
+        console.warn("Icon mesh validation failed:", validation.issues);
+        return false;
+      }
     }
     const boundingBox2 = new THREE.Box3().setFromObject(mesh);
     const size = boundingBox2.getSize(new THREE.Vector3());
@@ -60007,6 +60009,9 @@ class QRCode3D extends BaseTag3D {
       return false;
     }
     return true;
+  }
+  shouldValidateIconGeometry() {
+    return this.options.code.validateIconGeometry !== false;
   }
   /**
    * Attempts complex icon processing (current enhanced mode)
@@ -60154,14 +60159,14 @@ class QRCode3D extends BaseTag3D {
         }
         return geo;
       });
-      const validGeometries = compatibleGeometries.filter((geo) => {
+      const validGeometries = this.shouldValidateIconGeometry() ? compatibleGeometries.filter((geo) => {
         const validation = this.validateGeometry(geo);
         if (!validation.isValid) {
           console.warn("Filtering out invalid geometry:", validation.issues);
           return false;
         }
         return true;
-      });
+      }) : compatibleGeometries;
       if (validGeometries.length === 0) {
         console.warn("No valid geometries remaining after validation");
         return null;
@@ -60221,15 +60226,17 @@ class QRCode3D extends BaseTag3D {
             depth: this.options.code.depth,
             bevelEnabled: false
           });
-          const validation = this.validateGeometry(pathGeometry);
           let finalGeometry = pathGeometry;
-          if (!validation.isValid) {
-            console.warn("Geometry validation failed, attempting repair:", validation.issues);
-            finalGeometry = this.repairGeometry(pathGeometry);
-            const repairedValidation = this.validateGeometry(finalGeometry);
-            if (!repairedValidation.isValid) {
-              console.warn("Geometry repair failed, skipping shape:", repairedValidation.issues);
-              return;
+          if (this.shouldValidateIconGeometry()) {
+            const validation = this.validateGeometry(pathGeometry);
+            if (!validation.isValid) {
+              console.warn("Geometry validation failed, attempting repair:", validation.issues);
+              finalGeometry = this.repairGeometry(pathGeometry);
+              const repairedValidation = this.validateGeometry(finalGeometry);
+              if (!repairedValidation.isValid) {
+                console.warn("Geometry repair failed, skipping shape:", repairedValidation.issues);
+                return;
+              }
             }
           }
           geometries.push(finalGeometry);
@@ -61048,6 +61055,7 @@ const qrDefaultOptions = {
     iconSizeRatio: 20,
     iconBlockMargin: 1.5,
     preciseIconMargin: true,
+    validateIconGeometry: false,
     iconShapes: null,
     cityMode: false,
     depthMax: 5,
@@ -61266,6 +61274,7 @@ General:
   --filename <name>                   Base output filename (default: generated from timestamp/options)
   --format <binary|ascii>             STL format (default: binary)
   --separate-parts                    Write base/code/border/icon/text parts as separate STL files
+  --no-png                            Skip QR preview PNG generation
   --options-json <file>               Merge additional options JSON into the selected mode defaults
 
 QR content:
@@ -61864,8 +61873,10 @@ const main = async () => {
     if (!qrText) throw new Error("QR content cannot be empty");
     const qrCodeObject = await qrcode.create(qrText, { errorCorrectionLevel: options.errorCorrectionLevel });
     generator = new QRCode3D(qrCodeObject.modules.data, options);
-    previewPngPath = path.join(outputDir, `${filename}.png`);
-    await writeQRPreviewPng(previewPngPath, qrCodeObject, options, generator);
+    if (!bool(args, "no-png")) {
+      previewPngPath = path.join(outputDir, `${filename}.png`);
+      await writeQRPreviewPng(previewPngPath, qrCodeObject, options, generator);
+    }
     console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm, iconSize=${options.code.iconSizeRatio}%, iconBlockMargin=${options.code.iconBlockMargin}`);
   } else if (mode === "text") {
     generator = new BaseTag3D(await buildTextOptions(args));

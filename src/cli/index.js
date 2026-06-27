@@ -65,6 +65,7 @@ General:
   --filename <name>                   Base output filename (default: generated from timestamp/options)
   --format <binary|ascii>             STL format (default: binary)
   --separate-parts                    Write base/code/border/icon/text parts as separate STL files
+  --no-png                            Skip QR preview PNG generation
   --options-json <file>               Merge additional options JSON into the selected mode defaults
 
 QR content:
@@ -743,8 +744,10 @@ const main = async () => {
     if (!qrText) throw new Error('QR content cannot be empty');
     const qrCodeObject = await qrcode.create(qrText, { errorCorrectionLevel: options.errorCorrectionLevel });
     generator = new QRCode3D(qrCodeObject.modules.data, options);
-    previewPngPath = path.join(outputDir, `${filename}.png`);
-    await writeQRPreviewPng(previewPngPath, qrCodeObject, options, generator);
+    if (!bool(args, 'no-png')) {
+      previewPngPath = path.join(outputDir, `${filename}.png`);
+      await writeQRPreviewPng(previewPngPath, qrCodeObject, options, generator);
+    }
     console.log(`QR settings: errorCorrection=${options.errorCorrectionLevel}, modules=${generator.maskWidth}x${generator.maskWidth}, blockWidth=${generator.blockWidth.toFixed(3)}mm, blockCornerRadius=${options.code.blockCornerRadius}mm, iconSize=${options.code.iconSizeRatio}%, iconBlockMargin=${options.code.iconBlockMargin}`);
   } else if (mode === 'text') {
     generator = new BaseTag3D(await buildTextOptions(args));

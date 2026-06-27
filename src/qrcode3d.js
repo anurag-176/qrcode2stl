@@ -243,10 +243,12 @@ class QRCode3D extends BaseTag3D {
       return false;
     }
 
-    const validation = this.validateGeometry(mesh.geometry);
-    if (!validation.isValid) {
-      console.warn('Icon mesh validation failed:', validation.issues);
-      return false;
+    if (this.shouldValidateIconGeometry()) {
+      const validation = this.validateGeometry(mesh.geometry);
+      if (!validation.isValid) {
+        console.warn('Icon mesh validation failed:', validation.issues);
+        return false;
+      }
     }
 
     // Check if mesh has reasonable bounds
@@ -259,6 +261,10 @@ class QRCode3D extends BaseTag3D {
     }
 
     return true;
+  }
+
+  shouldValidateIconGeometry() {
+    return this.options.code.validateIconGeometry !== false;
   }
 
   /**
@@ -448,15 +454,16 @@ class QRCode3D extends BaseTag3D {
         return geo;
       });
 
-      // Validate all geometries before merging
-      const validGeometries = compatibleGeometries.filter(geo => {
-        const validation = this.validateGeometry(geo);
-        if (!validation.isValid) {
-          console.warn('Filtering out invalid geometry:', validation.issues);
-          return false;
-        }
-        return true;
-      });
+      const validGeometries = this.shouldValidateIconGeometry()
+        ? compatibleGeometries.filter(geo => {
+          const validation = this.validateGeometry(geo);
+          if (!validation.isValid) {
+            console.warn('Filtering out invalid geometry:', validation.issues);
+            return false;
+          }
+          return true;
+        })
+        : compatibleGeometries;
 
       if (validGeometries.length === 0) {
         console.warn('No valid geometries remaining after validation');
@@ -536,19 +543,19 @@ class QRCode3D extends BaseTag3D {
             bevelEnabled: false,
           });
 
-          // Validate geometry before proceeding
-          const validation = this.validateGeometry(pathGeometry);
           let finalGeometry = pathGeometry;
 
-          if (!validation.isValid) {
-            console.warn('Geometry validation failed, attempting repair:', validation.issues);
-            finalGeometry = this.repairGeometry(pathGeometry);
+          if (this.shouldValidateIconGeometry()) {
+            const validation = this.validateGeometry(pathGeometry);
+            if (!validation.isValid) {
+              console.warn('Geometry validation failed, attempting repair:', validation.issues);
+              finalGeometry = this.repairGeometry(pathGeometry);
 
-            // Re-validate after repair
-            const repairedValidation = this.validateGeometry(finalGeometry);
-            if (!repairedValidation.isValid) {
-              console.warn('Geometry repair failed, skipping shape:', repairedValidation.issues);
-              return; // Skip this shape
+              const repairedValidation = this.validateGeometry(finalGeometry);
+              if (!repairedValidation.isValid) {
+                console.warn('Geometry repair failed, skipping shape:', repairedValidation.issues);
+                return;
+              }
             }
           }
 
