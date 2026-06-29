@@ -17,7 +17,6 @@ const i18n = new VueI18n({
   messages: translations,
 });
 
-// eslint-disable-next-line import/prefer-default-export
 export const bus = new Vue();
 
 new Vue({

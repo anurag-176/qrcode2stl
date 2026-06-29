@@ -135,7 +135,6 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment';
-// eslint-disable-next-line import/no-webpack-loader-syntax
 import changelog from '../../CHANGELOG.md?raw';
 import { bus } from '../main';
 import { getRandomBanner, saveAsArrayBuffer, trimCanvas } from '../utils';

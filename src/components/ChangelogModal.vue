@@ -22,7 +22,6 @@
 </template>
 
 <script>
-// eslint-disable-next-line import/no-webpack-loader-syntax
 import changelog from '../../CHANGELOG.md?raw';
 import packageJson from '../../package.json';
 import { bus } from '../main';

@@ -10,7 +10,11 @@
     "cli": "node dist-cli/qrcode2stl.js",
     "preview": "vite preview",
     "lint": "eslint src --ext .js,.vue",
-    "serve": "npx serve public"
+    "serve": "npx serve public",
+    "test": "node --test",
+    "test:cli": "node --test tests/cli.test.js",
+    "verify": "npm run build:cli && npm run lint && npm run test",
+    "prepare-hooks": "git config core.hooksPath .githooks"
   },
   "bin": {
     "qrcode2stl": "dist-cli/qrcode2stl.js"
